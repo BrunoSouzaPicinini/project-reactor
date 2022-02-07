@@ -152,4 +152,22 @@ public class MonoTest {
                 .verifyComplete();
     }
 
+    @Test
+    public void monoOnErrorResume() {
+        String name = "Bruno";
+        Mono<Object> errorMono = Mono.error(new IllegalArgumentException("Illegal argument exception"))
+                .onErrorResume(throwable -> {
+                    log.info("Inside onErrorResume");
+                    log.info("logging error: {}", throwable.toString());
+                    return Mono.just(name);
+                })
+                .onErrorReturn(name)
+                .doOnError(e -> MonoTest.log.error("Error message: {}", e.getMessage()))
+                .log();
+
+        StepVerifier.create(errorMono)
+                .expectNext(name)
+                .verifyComplete();
+    }
+
 }
