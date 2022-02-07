@@ -2,6 +2,7 @@ package reactive.test;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import org.reactivestreams.Subscription;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -29,9 +30,10 @@ public class MonoTest {
         Mono<String> mono = Mono.just(name)
                 .log();
 
-        mono.subscribe();
-
         log.info("------------------------");
+        mono.subscribe();
+        log.info("------------------------");
+
         StepVerifier.create(mono)
                 .expectNext("Bruno")
                 .verifyComplete();
@@ -40,23 +42,27 @@ public class MonoTest {
     @Test
     public void monoSubscriberConsumer() {
         String name = "Bruno";
-        Mono<String> mono = Mono.just(name);
+        Mono<String> mono = Mono.just(name)
+                .log();
 
+        log.info("------------------------");
         mono.subscribe(s -> log.info("Value is:{}", s));
         log.info("------------------------");
 
         StepVerifier.create(mono)
                 .expectNext(name)
                 .verifyComplete();
-
     }
 
     @Test
     public void monoSubscriberConsumerError() {
         String name = "Bruno";
         Mono<String> mono = Mono.just(name)
-                .map(s -> {throw new RuntimeException("Testing mono with error");});
+                .map(s -> {
+                    throw new RuntimeException("Testing mono with error");
+                });
 
+        log.info("------------------------");
         mono.subscribe(s -> log.info("Value is:{}", s), s -> log.error("Something bad happened"));
         mono.subscribe(s -> log.info("Value is:{}", s), Throwable::printStackTrace);
         log.info("------------------------");
@@ -64,6 +70,62 @@ public class MonoTest {
         StepVerifier.create(mono)
                 .expectError(RuntimeException.class)
                 .verify();
-
     }
+
+    @Test
+    public void monoSubscriberConsumerComplete() {
+        String name = "Bruno";
+        Mono<String> mono = Mono.just(name)
+                .log()
+                .map(String::toUpperCase);
+
+        log.info("------------------------");
+        mono.subscribe(s -> log.info("Value is:{}", s),
+                Throwable::printStackTrace,
+                () -> log.info("FINISHED!"));
+        log.info("------------------------");
+
+        StepVerifier.create(mono)
+                .expectNext(name.toUpperCase())
+                .verifyComplete();
+    }
+
+    @Test
+    public void monoSubscriberConsumerSubscription() {
+        String name = "Bruno";
+        Mono<String> mono = Mono.just(name)
+                .log()
+                .map(String::toUpperCase);
+
+        log.info("------------------------");
+        mono.subscribe(s -> log.info("Value is:{}", s),
+                Throwable::printStackTrace,
+                () -> log.info("FINISHED!"),
+                Subscription::cancel);
+        log.info("------------------------");
+
+        StepVerifier.create(mono)
+                .expectNext(name.toUpperCase())
+                .verifyComplete();
+    }
+
+    @Test
+    public void monoSubscriberConsumerSubscriptionLimited() {
+        String name = "Bruno";
+        Mono<String> mono = Mono.just(name)
+                .log()
+                .map(String::toUpperCase);
+
+        log.info("------------------------");
+        mono.subscribe(s -> log.info("Value is:{}", s),
+                Throwable::printStackTrace,
+                () -> log.info("FINISHED!"),
+                subscription -> subscription.request(5));
+        log.info("------------------------");
+
+        StepVerifier.create(mono)
+                .expectNext(name.toUpperCase())
+                .verifyComplete();
+    }
+
 }
