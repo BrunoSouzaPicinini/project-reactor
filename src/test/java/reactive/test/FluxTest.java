@@ -103,9 +103,9 @@ public class FluxTest {
 
         log.info("--------------------------");
         flux.subscribe(new Subscriber<>() {
+            private final int requestCount = 2;
             private int count = 0;
             private Subscription subscription;
-            private final int requestCount = 2;
 
             @Override
             public void onSubscribe(Subscription subscription) {
@@ -146,8 +146,8 @@ public class FluxTest {
 
         log.info("--------------------------");
         flux.subscribe(new BaseSubscriber<>() {
-            private int count = 0;
             private final int requestCount = 2;
+            private int count = 0;
 
             @Override
             protected void hookOnSubscribe(Subscription subscription) {
@@ -170,6 +170,20 @@ public class FluxTest {
                 .verifyComplete();
     }
 
+    @Test
+    public void fluxSubscriberNumbersPrettyBackpressure() {
+        Flux<Integer> flux = Flux.range(1, 10)
+                .log()
+                .limitRate(3);
+
+        log.info("--------------------------");
+        flux.subscribe(i -> log.info("Number {}", i));
+        log.info("--------------------------");
+
+        StepVerifier.create(flux)
+                .expectNext(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+                .verifyComplete();
+    }
 
     @Test
     public void fluxSubscriberIntervalOne() throws Exception {
@@ -184,14 +198,14 @@ public class FluxTest {
 
     @Test
     public void fluxSubscriberIntervalTwo() throws Exception {
-         StepVerifier.withVirtualTime(this::createInterval)
-                 .expectSubscription()
-                 .expectNoEvent(Duration.ofDays(1))
-                 .thenAwait(Duration.ofDays(1))
-                 .expectNext(0L)
-                 .expectNext(1L)
-                 .thenCancel()
-                 .verify();
+        StepVerifier.withVirtualTime(this::createInterval)
+                .expectSubscription()
+                .expectNoEvent(Duration.ofDays(1))
+                .thenAwait(Duration.ofDays(1))
+                .expectNext(0L)
+                .expectNext(1L)
+                .thenCancel()
+                .verify();
     }
 
     private Flux<Long> createInterval() {
