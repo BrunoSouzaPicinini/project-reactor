@@ -10,6 +10,7 @@ import reactor.test.StepVerifier;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -214,6 +215,7 @@ class OperatorsTest {
 
         //It will combine the results published at the same time in flux,
         //there is no warranty of the combined results, the results depends on the time
+        //this is a lazy operator, that will wait to first operator finishes and then start the second one
         Flux<String> combine = Flux.combineLatest(flux1, flux2,
                             (s1, s2) -> s1.toUpperCase() + s2.toUpperCase())
                 .log();
@@ -222,6 +224,44 @@ class OperatorsTest {
                 .expectSubscription()
                 .expectNext("BC", "BD")
                 .verifyComplete();
+    }
+
+    @Test
+    void mergeOperator() throws InterruptedException {
+        Flux<String> flux1 = Flux.just("a", "b").delayElements(Duration.ofMillis(200));
+        Flux<String> flux2 = Flux.just("c", "d");
+
+        //It's similar than combine operator but merge is eagerly
+        //that mean it won't wait the first one finishes
+        Flux<String> merge = Flux.merge(flux1, flux2).log();
+
+        merge.subscribe(log::info);
+
+        Thread.sleep(1000);
+
+        StepVerifier.create(merge)
+                .expectSubscription()
+                .expectNext("c", "d","a", "b")
+                .expectComplete()
+                .verify() ;
+    }
+
+    @Test
+    void mergeWithOperator() throws InterruptedException {
+        Flux<String> flux1 = Flux.just("a", "b").delayElements(Duration.ofMillis(200));
+        Flux<String> flux2 = Flux.just("c", "d");
+
+        Flux<String> merge = flux1.mergeWith(flux2).log();
+
+        merge.subscribe(log::info);
+
+        Thread.sleep(1000);
+
+        StepVerifier.create(merge)
+                .expectSubscription()
+                .expectNext("c", "d","a", "b")
+                .expectComplete()
+                .verify() ;
     }
 
     private Flux<Object> emptyFlux() {
