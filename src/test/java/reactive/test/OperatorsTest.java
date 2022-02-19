@@ -1,5 +1,9 @@
 package reactive.test;
 
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -349,7 +353,7 @@ class OperatorsTest {
                 .flatMap(this::findByName)
                 .log();
 
-            StepVerifier
+        StepVerifier
                 .create(flatFlux)
                 .expectSubscription()
                 .expectNext("nameB1", "nameB2", "nameA1", "nameA2")
@@ -373,6 +377,45 @@ class OperatorsTest {
 
     }
 
+    @Test
+    void zipOperator() {
+        Flux<String> titleFlux = Flux.just("Grand Blue", "Baki", "Naruto");
+        Flux<String> studioFlux = Flux.just("Zero-G", "TMS Entertainment", "Studio Pierrot");
+        Flux<Integer> episodesFlux = Flux.just(12, 24, 500);
+
+        Flux<Anime> animeFlux = Flux.zip(titleFlux, studioFlux, episodesFlux)
+                .flatMap(tuple -> Flux.just(new Anime(tuple.getT1(), tuple.getT2(), tuple.getT3())));
+
+        animeFlux.subscribe(anime -> log.info(anime.toString()));
+
+        StepVerifier.create(animeFlux)
+                .expectSubscription()
+                .expectNext(
+                        new Anime("Grand Blue", "Zero-G", 12),
+                        new Anime("Baki", "TMS Entertainment", 24),
+                        new Anime("Naruto", "Studio Pierrot", 500))
+                .expectComplete();
+    }
+
+    @Test
+    void zipWithOperator() {
+        Flux<String> titleFlux = Flux.just("Grand Blue", "Baki", "Naruto");
+        Flux<Integer> episodesFlux = Flux.just(12, 24, 500);
+
+        //Zip with support only 2 operators
+        Flux<Anime> animeFlux = titleFlux.zipWith(episodesFlux)
+                .flatMap(tuple -> Flux.just(new Anime(tuple.getT1(), null, tuple.getT2())));
+
+        animeFlux.subscribe(anime -> log.info(anime.toString()));
+
+        StepVerifier.create(animeFlux)
+                .expectSubscription()
+                .expectNext(
+                        new Anime("Grand Blue", null, 12),
+                        new Anime("Baki", null, 24),
+                        new Anime("Naruto", null, 500))
+                .expectComplete();
+    }
 
     private Flux<Object> emptyFlux() {
         return Flux.empty();
@@ -380,6 +423,16 @@ class OperatorsTest {
 
     private Flux<String> findByName(String name) {
         return name.equals("A") ? Flux.just("nameA1", "nameA2").delayElements(Duration.ofMillis(100)) : Flux.just("nameB1", "nameB2");
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @ToString
+    @EqualsAndHashCode
+    class Anime {
+        private String title;
+        private String studio;
+        private int episodes;
     }
 
 }
