@@ -1,10 +1,18 @@
 package reactive.test;
 
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.reactivestreams.Subscription;
+import reactor.blockhound.BlockHound;
+import reactor.blockhound.BlockingOperationError;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
+
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 /* Reactive Streams
@@ -22,6 +30,28 @@ import reactor.test.StepVerifier;
   3. There is an error. (anError) -> subscriber and subscription will be canceled
  */
 public class MonoTest {
+
+    @BeforeAll
+    static void setup() {
+        //This is a way to make sure that the code aren't doing something wrong that is blocking threads
+        BlockHound.install();
+    }
+
+    @Test
+    public void blockHoundWorks() {
+        try {
+            FutureTask<?> task = new FutureTask<>(() -> {
+                Thread.sleep(0);
+                return "";
+            });
+            Schedulers.parallel().schedule(task);
+
+            task.get(10, TimeUnit.SECONDS);
+            Assertions.fail("should fail");
+        } catch (Exception e) {
+            Assertions.assertTrue(e.getCause() instanceof BlockingOperationError);
+        }
+    }
 
     @Test
     public void monoSubscriber() {
