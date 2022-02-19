@@ -196,6 +196,46 @@ class OperatorsTest {
     }
 
     @Test
+    void concatOperatorError() {
+        Flux<String> flux1 = Flux.just("a", "b")
+                .map(s -> {
+                    if (s.equals("b")) {
+                        throw new IllegalArgumentException();
+                    }
+                    return s;
+                });
+        Flux<String> flux2 = Flux.just("c", "d");
+
+        Flux<String> concat = Flux.concat(flux1, flux2).log();
+
+        StepVerifier.create(concat)
+                .expectSubscription()
+                .expectNext("a")
+                .expectError()
+                .verify();
+    }
+
+    @Test
+    void concatOperatorErrorDelayed() {
+        Flux<String> flux1 = Flux.just("a", "b")
+                .map(s -> {
+                    if (s.equals("b")) {
+                        throw new IllegalArgumentException();
+                    }
+                    return s;
+                });
+        Flux<String> flux2 = Flux.just("c", "d");
+
+        Flux<String> concat = Flux.concatDelayError(flux1, flux2).log();
+
+        StepVerifier.create(concat)
+                .expectSubscription()
+                .expectNext("a", "c", "d")
+                .expectError()
+                .verify();
+    }
+
+    @Test
     void concatWithOperator() {
         Flux<String> flux1 = Flux.just("a", "b");
         Flux<String> flux2 = Flux.just("c", "d");
@@ -217,7 +257,7 @@ class OperatorsTest {
         //there is no warranty of the combined results, the results depends on the time
         //this is a lazy operator, that will wait to first operator finishes and then start the second one
         Flux<String> combine = Flux.combineLatest(flux1, flux2,
-                            (s1, s2) -> s1.toUpperCase() + s2.toUpperCase())
+                        (s1, s2) -> s1.toUpperCase() + s2.toUpperCase())
                 .log();
 
         StepVerifier.create(combine)
@@ -241,9 +281,9 @@ class OperatorsTest {
 
         StepVerifier.create(merge)
                 .expectSubscription()
-                .expectNext("c", "d","a", "b")
+                .expectNext("c", "d", "a", "b")
                 .expectComplete()
-                .verify() ;
+                .verify();
     }
 
     @Test
@@ -259,10 +299,48 @@ class OperatorsTest {
 
         StepVerifier.create(merge)
                 .expectSubscription()
-                .expectNext("c", "d","a", "b")
+                .expectNext("c", "d", "a", "b")
                 .expectComplete()
-                .verify() ;
+                .verify();
     }
+
+    @Test
+    void mergeSequentialOperator() throws InterruptedException {
+        Flux<String> flux1 = Flux.just("a", "b").delayElements(Duration.ofMillis(200));
+        Flux<String> flux2 = Flux.just("c", "d");
+
+        Flux<String> merge = Flux.mergeSequential(flux1, flux2, flux1)
+                .delayElements(Duration.ofMillis(200))
+                .log();
+
+        StepVerifier.create(merge)
+                .expectSubscription()
+                .expectNext("a", "b", "c", "d", "a", "b")
+                .expectComplete()
+                .verify();
+    }
+
+    @Test
+    void mergeDelayErrorOperator() throws InterruptedException {
+        Flux<String> flux1 = Flux.just("a", "b")
+                .map(s -> {
+                    if (s.equals("b")) {
+                        throw new IllegalArgumentException();
+                    }
+                    return s;
+                });
+        Flux<String> flux2 = Flux.just("c", "d");
+
+        Flux<String> merge = Flux.mergeSequentialDelayError(1, flux1, flux2, flux1)
+                .log();
+
+        StepVerifier.create(merge)
+                .expectSubscription()
+                .expectNext("a", "c", "d", "a")
+                .expectError()
+                .verify();
+    }
+
 
     private Flux<Object> emptyFlux() {
         return Flux.empty();
